@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: report-service
+  namespace: code-review-system
+  labels: { app: report-service }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: report-service } }
+  template:
+    metadata: { labels: { app: report-service } }
+    spec:
+      containers:
+        - name: report-service
+          image: codereview/report-service:latest
+          imagePullPolicy: Never   # images are built inside minikube (scripts/build-images.sh)
+          ports: [{ containerPort: 8000, name: http }]
+          envFrom: [{ configMapRef: { name: app-config } }]
+          env:
+            - name: POSTGRES_USER
+              valueFrom: { secretKeyRef: { name: app-secrets, key: POSTGRES_USER, optional: true } }
+            - name: POSTGRES_PASSWORD
+              valueFrom: { secretKeyRef: { name: app-secrets, key: POSTGRES_PASSWORD, optional: true } }
+          readinessProbe: { httpGet: { path: /health, port: http }, initialDelaySeconds: 3, periodSeconds: 5 }
+          livenessProbe: { httpGet: { path: /health, port: http }, initialDelaySeconds: 15, periodSeconds: 15 }
+          resources:
+            requests: { cpu: 50m, memory: 96Mi }
+            limits: { cpu: 300m, memory: 256Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: report-service
+  namespace: code-review-system
+  labels: { app: report-service, monitoring: enabled }
+spec:
+  selector: { app: report-service }
+  ports: [{ name: http, port: 8000, targetPort: http }]

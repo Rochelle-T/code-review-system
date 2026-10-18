@@ -1,0 +1,19 @@
+# Helm values for prometheus-community/kube-prometheus-stack (trimmed for a laptop).
+alertmanager:
+  enabled: false
+grafana:
+  adminPassword: admin
+  sidecar:
+    dashboards:
+      enabled: true
+      label: grafana_dashboard
+      searchNamespace: ALL
+prometheus:
+  prometheusSpec:
+    scrapeInterval: 15s
+    # pick up our ServiceMonitor even though it doesn't carry the Helm release label
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    retention: 1d
+    resources:
+      requests: { cpu: 100m, memory: 400Mi }

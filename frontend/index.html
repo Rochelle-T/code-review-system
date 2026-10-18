@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Code Review Automation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #f4f6f5; --surface: #ffffff; --ink: #17201d; --muted: #5d6a65; --line: #d9dfdc;
+    --accent: #2e6b5e; --accent-soft: #e3efeb; --error: #b3261e; --warn: #a86a00;
+    --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, "Cascadia Code", Consolas, monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #101513; --surface: #18201d; --ink: #e4eae7; --muted: #9aa8a2; --line: #2b3632;
+      --accent: #7cc4b0; --accent-soft: #1f312c; --error: #f2867d; --warn: #e0b054;
+      color-scheme: dark;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 15px/1.5 var(--sans); }
+  button, input { font: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  a { color: var(--accent); }
+
+  .bar { display: flex; align-items: center; gap: 16px; padding: 14px 28px; border-bottom: 1px solid var(--line); background: var(--surface); }
+  .bar h1 { font-size: 16px; font-weight: 600; margin: 0; }
+  .live { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; margin-left: auto; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+  .dot.off { background: var(--error); }
+  .ghost { background: none; border: 1px solid var(--line); border-radius: 6px; padding: 5px 12px; cursor: pointer; }
+
+  main { max-width: 1280px; margin: 0 auto; padding: 32px 28px 64px; }
+  .headline { font-size: clamp(26px, 4vw, 40px); font-weight: 500; line-height: 1.15; letter-spacing: -0.01em; margin: 0 0 8px; max-width: 24ch; }
+  .sub { color: var(--muted); margin: 0 0 32px; }
+  .sub b { color: var(--ink); font-weight: 500; }
+
+  .grid { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 24px; align-items: start; }
+  @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+
+  .list { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .row { display: grid; grid-template-columns: 6px 1fr auto; gap: 14px; width: 100%; text-align: left; padding: 14px 18px 14px 0;
+         background: none; border: 0; border-bottom: 1px solid var(--line); cursor: pointer; }
+  .row:last-child { border-bottom: 0; }
+  .row:hover, .row[aria-selected="true"] { background: var(--accent-soft); }
+  .gutter { display: flex; flex-direction: column; min-height: 44px; }
+  .gutter span:first-child { background: var(--error); }
+  .gutter span:last-child { background: var(--warn); }
+  .row .title { font-weight: 500; }
+  .row .meta { color: var(--muted); font-size: 13px; font-family: var(--mono); }
+  .counts { text-align: right; font-size: 13px; white-space: nowrap; }
+  .counts .n { font-size: 20px; font-weight: 500; display: block; line-height: 1.1; }
+  .tag { font-size: 11px; border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; margin-left: 6px; color: var(--muted); }
+
+  .detail { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 22px; position: sticky; top: 16px; }
+  .detail h2 { font-size: 20px; font-weight: 500; margin: 0 0 4px; }
+  .detail .meta { color: var(--muted); font-size: 13px; margin-bottom: 18px; }
+  .file { font-family: var(--mono); font-size: 13px; font-weight: 500; margin: 18px 0 6px; }
+  .finding { display: grid; grid-template-columns: 42px 64px 1fr; gap: 10px; padding: 6px 0; border-top: 1px solid var(--line); font-size: 14px; }
+  .finding .ln { font-family: var(--mono); color: var(--muted); text-align: right; }
+  .finding .code { font-family: var(--mono); font-size: 12px; padding-top: 2px; }
+  .finding.error .code { color: var(--error); } .finding.warning .code { color: var(--warn); }
+  .ai { background: var(--accent-soft); border-radius: 8px; padding: 14px 16px; white-space: pre-wrap; font-size: 14px; }
+  .empty { padding: 40px 24px; color: var(--muted); }
+  .empty code { font-family: var(--mono); color: var(--ink); }
+
+  .login { max-width: 360px; margin: 12vh auto; padding: 0 24px; }
+  .login h1 { font-size: 30px; font-weight: 500; margin: 0 0 6px; }
+  .login p { color: var(--muted); margin: 0 0 28px; }
+  .login label { display: block; font-size: 13px; color: var(--muted); margin: 14px 0 4px; }
+  .login input { width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); }
+  .primary { width: 100%; margin-top: 22px; padding: 11px; border: 0; border-radius: 6px; background: var(--accent); color: var(--paper); font-weight: 600; cursor: pointer; }
+  .err { color: var(--error); font-size: 14px; margin-top: 12px; }
+  @media (prefers-reduced-motion: no-preference) { .row { transition: background .15s; } }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone@7.25.6/babel.min.js"></script>
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useCallback } = React;
+
+async function api(path, { token, ...opts } = {}) {
+  const res = await fetch(path, {
+    ...opts,
+    headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+  });
+  if (res.status === 401) { const e = new Error("unauthorized"); e.status = 401; throw e; }
+  if (!res.ok) throw new Error(`The server answered ${res.status}. Check the service logs.`);
+  return res.json();
+}
+
+function ago(ts) {
+  const s = Math.max(0, (Date.now() - new Date(ts).getTime()) / 1000);
+  if (s < 60) return `${Math.floor(s)}s ago`;
+  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
+  return new Date(ts).toLocaleDateString();
+}
+
+function Login({ onLogin }) {
+  const [username, setUsername] = useState("admin");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const submit = async (e) => {
+    e.preventDefault(); setError("");
+    try {
+      const data = await api("/api/auth/login", { method: "POST", body: JSON.stringify({ username, password }) });
+      onLogin(data.token);
+    } catch (err) {
+      setError(err.status === 401 ? "Wrong username or password." : err.message);
+    }
+  };
+  return (
+    <form className="login" onSubmit={submit}>
+      <h1>Code reviews</h1>
+      <p>Sign in to see what the reviewer found in your pull requests.</p>
+      <label htmlFor="u">Username</label>
+      <input id="u" value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="username" />
+      <label htmlFor="p">Password</label>
+      <input id="p" type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" autoFocus />
+      <button className="primary" type="submit">Sign in</button>
+      {error && <div className="err" role="alert">{error}</div>}
+    </form>
+  );
+}
+
+function Gutter({ errors, warnings }) {
+  const total = errors + warnings;
+  if (!total) return <div className="gutter" style={{ background: "var(--accent)" }} aria-hidden="true" />;
+  return (
+    <div className="gutter" aria-hidden="true">
+      <span style={{ flex: errors }} /><span style={{ flex: warnings }} />
+    </div>
+  );
+}
+
+function Detail({ report }) {
+  if (!report) return <div className="detail empty">Choose a review to see every finding.</div>;
+  const byFile = {};
+  (report.findings || []).forEach((f) => { (byFile[f.file] ||= []).push(f); });
+  return (
+    <div className="detail">
+      <h2>{report.pr_title || `Pull request #${report.pr_number}`}</h2>
+      <div className="meta">
+        {report.repo} #{report.pr_number} by {report.author}, {report.files_analyzed} file(s) in {report.duration_seconds}s
+        {!report.demo && report.pr_url && <div><a href={report.pr_url} target="_blank" rel="noreferrer">Open the pull request on GitHub</a></div>}
+      </div>
+      {report.ai_summary && <div className="ai">{report.ai_summary}</div>}
+      {Object.keys(byFile).length === 0 && <p>No issues found.</p>}
+      {Object.entries(byFile).map(([file, items]) => (
+        <section key={file}>
+          <div className="file">{file}</div>
+          {items.map((f, i) => (
+            <div key={i} className={`finding ${f.severity}`}>
+              <span className="ln">{f.line}</span>
+              <span className="code">{f.code}</span>
+              <span>{f.message}</span>
+            </div>
+          ))}
+        </section>
+      ))}
+    </div>
+  );
+}
+
+function Dashboard({ token, onLogout }) {
+  const [reports, setReports] = useState([]);
+  const [stats, setStats] = useState(null);
+  const [selected, setSelected] = useState(null);
+  const [online, setOnline] = useState(true);
+
+  const load = useCallback(async () => {
+    try {
+      const [list, s] = await Promise.all([
+        api("/api/reports?limit=100", { token }),
+        api("/api/reports/stats", { token }),
+      ]);
+      setReports(list); setStats(s); setOnline(true);
+    } catch (err) {
+      if (err.status === 401) onLogout(); else setOnline(false);
+    }
+  }, [token, onLogout]);
+
+  useEffect(() => { load(); const t = setInterval(load, 4000); return () => clearInterval(t); }, [load]);
+
+  const open = async (id) => {
+    try { setSelected(await api(`/api/reports/${id}`, { token })); }
+    catch (err) { if (err.status === 401) onLogout(); }
+  };
+
+  return (
+    <>
+      <header className="bar">
+        <h1>Code Review Automation</h1>
+        <div className="live"><span className={`dot ${online ? "" : "off"}`} />{online ? "Updating every 4 seconds" : "Can't reach the API"}</div>
+        <button className="ghost" onClick={onLogout}>Sign out</button>
+      </header>
+      <main>
+        {stats && (
+          <>
+            <p className="headline">{stats.total_issues} issues found across {stats.reviews} reviewed pull requests</p>
+            <p className="sub"><b>{stats.errors}</b> errors and <b>{stats.warnings}</b> warnings. Each review took <b>{stats.avg_duration}s</b> on average.</p>
+          </>
+        )}
+        <div className="grid">
+          <div className="list" role="listbox" aria-label="Reviewed pull requests">
+            {reports.length === 0 && (
+              <div className="empty">No reviews yet. Open a pull request on your connected repository, or run <code>python scripts/load_test.py --count 20</code>.</div>
+            )}
+            {reports.map((r) => (
+              <button key={r.id} className="row" role="option" aria-selected={selected?.id === r.id} onClick={() => open(r.id)}>
+                <Gutter errors={r.errors} warnings={r.warnings} />
+                <div>
+                  <div className="title">{r.pr_title || `PR #${r.pr_number}`}{r.demo && <span className="tag">load test</span>}</div>
+                  <div className="meta">{r.repo} #{r.pr_number} {ago(r.created_at)}</div>
+                </div>
+                <div className="counts">
+                  <span className="n">{r.total_issues}</span>
+                  {r.errors} err, {r.warnings} warn
+                </div>
+              </button>
+            ))}
+          </div>
+          <Detail report={selected} />
+        </div>
+      </main>
+    </>
+  );
+}
+
+function App() {
+  const [token, setToken] = useState(() => sessionStorage.getItem("token"));
+  const login = (t) => { sessionStorage.setItem("token", t); setToken(t); };
+  const logout = useCallback(() => { sessionStorage.removeItem("token"); setToken(null); }, []);
+  return token ? <Dashboard token={token} onLogout={logout} /> : <Login onLogin={login} />;
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>

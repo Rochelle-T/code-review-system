@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-service
+  namespace: code-review-system
+  labels: { app: auth-service }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: auth-service } }
+  template:
+    metadata: { labels: { app: auth-service } }
+    spec:
+      containers:
+        - name: auth-service
+          image: codereview/auth-service:latest
+          imagePullPolicy: Never   # images are built inside minikube (scripts/build-images.sh)
+          ports: [{ containerPort: 8000, name: http }]
+          envFrom: [{ configMapRef: { name: app-config } }]
+          env:
+            - name: JWT_SECRET
+              valueFrom: { secretKeyRef: { name: app-secrets, key: JWT_SECRET, optional: true } }
+            - name: ADMIN_PASSWORD
+              valueFrom: { secretKeyRef: { name: app-secrets, key: ADMIN_PASSWORD, optional: true } }
+          readinessProbe: { httpGet: { path: /health, port: http }, initialDelaySeconds: 3, periodSeconds: 5 }
+          livenessProbe: { httpGet: { path: /health, port: http }, initialDelaySeconds: 15, periodSeconds: 15 }
+          resources:
+            requests: { cpu: 50m, memory: 96Mi }
+            limits: { cpu: 300m, memory: 256Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-service
+  namespace: code-review-system
+  labels: { app: auth-service, monitoring: enabled }
+spec:
+  selector: { app: auth-service }
+  ports: [{ name: http, port: 8000, targetPort: http }]

@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notification-service
+  namespace: code-review-system
+  labels: { app: notification-service }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: notification-service } }
+  template:
+    metadata: { labels: { app: notification-service } }
+    spec:
+      containers:
+        - name: notification-service
+          image: codereview/notification-service:latest
+          imagePullPolicy: Never   # images are built inside minikube (scripts/build-images.sh)
+          ports: [{ containerPort: 8000, name: http }]
+          envFrom: [{ configMapRef: { name: app-config } }]
+          env:
+            - name: GITHUB_TOKEN
+              valueFrom: { secretKeyRef: { name: app-secrets, key: GITHUB_TOKEN, optional: true } }
+          readinessProbe: { httpGet: { path: /health, port: http }, initialDelaySeconds: 3, periodSeconds: 5 }
+          livenessProbe: { httpGet: { path: /health, port: http }, initialDelaySeconds: 15, periodSeconds: 15 }
+          resources:
+            requests: { cpu: 50m, memory: 96Mi }
+            limits: { cpu: 300m, memory: 256Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: notification-service
+  namespace: code-review-system
+  labels: { app: notification-service, monitoring: enabled }
+spec:
+  selector: { app: notification-service }
+  ports: [{ name: http, port: 8000, targetPort: http }]

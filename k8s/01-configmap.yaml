@@ -1,0 +1,22 @@
+# Non-sensitive configuration, kept separate from code and from secrets.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  namespace: code-review-system
+data:
+  LOG_LEVEL: "INFO"
+  REDIS_HOST: "redis"
+  REDIS_PORT: "6379"
+  QUEUE_NAME: "review-jobs"
+  POSTGRES_HOST: "postgres"
+  POSTGRES_PORT: "5432"
+  POSTGRES_DB: "reviews"
+  NOTIFICATION_URL: "http://notification-service:8000"
+  REPORT_URL: "http://report-service:8000"
+  DASHBOARD_URL: "http://localhost:8080"
+  ADMIN_USER: "admin"
+  LLM_MODEL: "claude-haiku-5-5"
+  MAX_FILES: "50"
+# Secrets (passwords, GitHub token, webhook secret, LLM key) are NOT stored here.
+# scripts/deploy.sh creates the 'app-secrets' Secret from your local .env file.

@@ -1,0 +1,16 @@
+# Tells Prometheus to scrape /metrics every 15s from every Service labelled monitoring=enabled.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: code-review-services
+  namespace: monitoring
+spec:
+  namespaceSelector:
+    matchNames: [code-review-system]
+  selector:
+    matchLabels:
+      monitoring: enabled
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s

@@ -1,0 +1,24 @@
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: code-analysis-hpa
+  namespace: code-review-system
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: code-analysis
+  minReplicas: 1
+  maxReplicas: 5
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target: { type: Utilization, averageUtilization: 50 }
+  behavior:
+    scaleUp:   # react quickly to bursts of pull requests
+      stabilizationWindowSeconds: 0
+      policies: [{ type: Pods, value: 2, periodSeconds: 15 }]
+    scaleDown: # shortened from the 5-minute default so the demo shows scale-down too
+      stabilizationWindowSeconds: 60
+      policies: [{ type: Pods, value: 1, periodSeconds: 30 }]

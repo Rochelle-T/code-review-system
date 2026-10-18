@@ -1,0 +1,39 @@
+# CPU-heavy queue worker. No 'replicas' field on purpose: the HPA (40-hpa.yaml) owns the count.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: code-analysis
+  namespace: code-review-system
+  labels: { app: code-analysis }
+spec:
+  selector: { matchLabels: { app: code-analysis } }
+  template:
+    metadata: { labels: { app: code-analysis } }
+    spec:
+      containers:
+        - name: code-analysis
+          image: codereview/code-analysis:latest
+          imagePullPolicy: Never
+          ports: [{ containerPort: 8000, name: http }]   # Prometheus /metrics
+          envFrom: [{ configMapRef: { name: app-config } }]
+          env:
+            - name: GITHUB_TOKEN
+              valueFrom: { secretKeyRef: { name: app-secrets, key: GITHUB_TOKEN, optional: true } }
+            - name: LLM_API_KEY
+              valueFrom: { secretKeyRef: { name: app-secrets, key: LLM_API_KEY, optional: true } }
+          readinessProbe: { httpGet: { path: /metrics, port: http }, initialDelaySeconds: 3, periodSeconds: 5 }
+          livenessProbe: { httpGet: { path: /metrics, port: http }, initialDelaySeconds: 15, periodSeconds: 15 }
+          # CPU requests are REQUIRED for the HPA to calculate utilisation.
+          resources:
+            requests: { cpu: 200m, memory: 128Mi }
+            limits: { cpu: 500m, memory: 512Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: code-analysis
+  namespace: code-review-system
+  labels: { app: code-analysis, monitoring: enabled }
+spec:
+  selector: { app: code-analysis }
+  ports: [{ name: http, port: 8000, targetPort: http }]
